@@ -1,0 +1,14 @@
+{
+    "sqltools.connections": [
+        {
+            "connectionTimeout": 30,
+            "database": "ccbc",
+            "dialect": "MySQL",
+            "name": "192.168.140.128-3306",
+            "password": "root",
+            "port": 3306,
+            "server": "192.168.140.128",
+            "username": "root"
+        }
+    ]
+}
