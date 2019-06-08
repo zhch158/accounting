@@ -1,0 +1,120 @@
+#全局设置
+config:
+    yyyymmdd: '20190526'
+    workdir: G:/myjb
+    dbconfig: ./database.ini
+    relationdata: ${workdir}/contract_no_3.csv
+    
+accounting:
+    path: ${workdir}/accounting/${yyyymmdd}
+    datafile: accounting
+    checkfile: check_accounting
+    columns_types: {}
+    groupby: []
+    aggregate: [count, sum]
+
+loan_detail:
+    path: ${workdir}/loan/${yyyymmdd}
+    datafile: loan_detail
+    checkfile: check_loan_detail
+    columns_types: {'contract_no': 'object', 'fund_seq_no': 'object', 'prod_code': 'category', 'name': 'object', 
+        'cert_type': 'category', 'cert_no': 'object', 'loan_status': 'category', 
+        'loan_use': 'category', 'use_area': 'category', 'apply_date': 'object', 
+        'encash_date': 'object', 'currency': 'category', 'encash_amt': 'int32', 
+        'start_date': 'category', 'end_date': 'category', 'total_terms': 'category', 
+        'repay_mode': 'category', 'grace_day': 'category', 'rate_type': 'category', 
+        'day_rate': 'category', 'prin_repay_frequency': 'category', 
+        'int_repay_frequency': 'category', 'guarantee_type': 'category', 
+        'credit_no': 'object', 'encash_acct_type': 'category', 'encash_acct_no': 'object', 
+        'repay_acct_type': 'category', 'repay_acct_no': 'object', 'apply_no': 'object'}
+    groupby: 
+    aggregate: [count, sum]
+    relation: ${relationdata} 
+
+repay_plan:
+    path: ${workdir}/loan/${yyyymmdd}
+    datafile: repay_plan
+    checkfile: check_repay_plan
+    columns_types: {'contract_no': 'category', 'term_no': 'category', 
+        'start_date': 'category', 'end_date': 'category', 
+        'prin_amt': 'int32', 'int_amt': 'int32'}
+    groupby: 
+    aggregate: [count, sum]
+    relation: ${relationdata} 
+
+loan_calc:
+    path: ${workdir}/calc/${yyyymmdd}
+    datafile: loan_calc
+    checkfile: check_loan_calc
+    columns_types: {'contract_no': 'object', 'calc_date': 'category', 
+        'accrued_status': 'category', 'prin_bal': 'category', 'ovd_prin_bal': 'category', 
+        'ovd_int_bal': 'category', 'real_rate': 'category', 'pnlt_rate': 'category', 
+        'int_amt': 'int32', 'ovd_prin_pnlt_amt': 'int32', 'ovd_int_pnlt_amt': 'int32'}
+    groupby: 
+    aggregate: [count, sum]
+    relation: ${relationdata} 
+
+arg_status_change:
+    path: ${workdir}/change/${yyyymmdd}
+    datafile: arg_status_change
+    checkfile: check_arg_status_change
+    columns_types: {'contract_no': 'object', 'settle_date': 'category', 
+        'seq_no': 'object', 'event_code': 'category', 'before_status': 'category', 
+        'after_status': 'category', 'prin_amt': 'int32', 'int_amt': 'int32', 
+        'ovd_prin_pnlt_amt': 'int32', 'ovd_int_pnlt_amt': 'int32'}
+    groupby: 
+    aggregate: [count, sum]
+    relation: ${relationdata} 
+
+exempt_loan_detail:
+    path: ${workdir}/exempt/${yyyymmdd}
+    datafile: exempt_loan_detail
+    checkfile: check_exempt_loan_detail
+    columns_types: 
+    groupby: 
+    aggregate: [count, sum]
+    relation: ${relationdata} 
+
+loan_init:
+    path: ${workdir}/init/${yyyymmdd}
+    datafile: loan_init
+    checkfile: check_loan_init
+    columns_types: {'contract_no': 'object', 'settle_date': 'category', 
+        'status': 'category', 'clear_date': 'category', 'asset_class': 'category', 
+        'accrued_status': 'category', 'next_repay_date': 'category', 
+        'unclear_terms': 'category', 'ovd_terms': 'category', 
+        'prin_ovd_days': 'category', 'int_ovd_days': 'category', 
+        'prin_bal': 'int32', 'ovd_prin_bal': 'int32', 'int_bal': 'int32', 
+        'ovd_int_bal': 'int32', 'ovd_prin_pnlt_bal': 'int32', 'ovd_int_pnlt_bal': 'int32'}
+    groupby: 
+    aggregate: [count, sum]
+    relation: ${relationdata} 
+
+repay_loan_detail:
+    path: ${workdir}/repay/${yyyymmdd}
+    datafile: repay_loan_detail
+    checkfile: check_repay_loan_detail
+    columns_types: {'contract_no': 'object', 'seq_no': 'object', 'fee_no': 'object', 
+        'withdraw_no': 'object', 'repay_type': 'category', 'repay_date': 'category', 
+        'curr_prin_bal': 'category', 'curr_ovd_prin_bal': 'category', 
+        'curr_int_bal': 'category', 'curr_ovd_int_bal': 'category', 
+        'curr_ovd_prin_pnlt_bal': 'category', 'curr_ovd_int_pnlt_bal': 'category', 
+        'repay_amt': 'category', 'paid_prin_amt': 'int32', 'paid_ovd_prin_amt': 'int32', 
+        'paid_int_amt': 'int32', 'paid_ovd_int_amt': 'int32', 
+        'paid_ovd_prin_pnlt_amt': 'int32', 'paid_ovd_int_pnlt_amt': 'int32', 'fee_amt': 'int32'}
+    groupby: 
+    aggregate: [count, sum]
+    relation: ${relationdata} 
+
+instmnt_init:
+    path: ${workdir}/init/${yyyymmdd}
+    datafile: instmnt_init
+    checkfile: check_instmnt_init
+    columns_types: {'contract_no': 'category', 'settle_date': 'category', 'term_no': 'category', 
+        'start_date': 'category', 'end_date': 'category', 'status': 'category', 'clear_date': 'category', 
+        'prin_ovd_date': 'category', 'int_ovd_date': 'category', 'prin_ovd_days': 'category', 
+        'int_ovd_days': 'category', 
+        'prin_bal': 'int32', 'int_bal': 'int32', 'ovd_prin_pnlt_bal': 'int32', 'ovd_int_pnlt_bal': 'int32'}
+    groupby: 
+    aggregate: [count, sum]
+    relation: ${relationdata} 
