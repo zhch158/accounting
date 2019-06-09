@@ -2,6 +2,7 @@
 config:
     yyyymmdd: '20190526'
     workdir: G:/myjb
+    outdir: ${workdir}/output/${yyyymmdd}
     dbconfig: ./database.ini
     relationdata: ${workdir}/contract_no_3.csv
     mayi_2: J1010100100000000004_2

@@ -85,12 +85,20 @@ def read_csv(infile, column_dict=None, checkfile=None):
     
     return ret_code, ret_msg, optimized_ds
 
+def write_csv(ds, outdir, section):
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    o_file= os.path.join(outdir, section)
+    ds.to_csv(o_file, encoding='utf-8', index=False, header=True)
+
 def set_value(row, prefix):
     detail_type=prefix + '.' + row.values[0]
 
-def aggregate_detail(ds, relation_ds, groupby, agg_cols, glob_conf, section_conf):
+def aggregate_detail(ds, relation_ds, out_ds, groupby, agg_cols, glob_conf, section_conf):
     ret_msg=None
     ret_code=0
+    if(ds.shape[0]==0):
+        return ret_code, ret_msg, ds, relation_ds, out_ds
 
     mayi_2=glob_config.get('mayi_2', None)
     mayi_3=glob_config.get('mayi_3', None)
@@ -104,19 +112,20 @@ def aggregate_detail(ds, relation_ds, groupby, agg_cols, glob_conf, section_conf
     else:
         # ds.insert(0, 'prod_code')
         ds=pd.merge(ds, relation_ds, how='left', on='contract_no')
+        ds['prod_code']=ds['prod_code'].astype('object')
         ds['prod_code']=ds['prod_code'].fillna(mayi_2)
+        ds['prod_code']=ds['prod_code'].astype('category')
 
     datafile=section_conf.get('datafile', None)
     out=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
-    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
+    # out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
     columns=groupby + agg_cols
     gp_ds=ds[columns].groupby(groupby).agg(['count', 'sum'])
     gp_ds=gp_ds.reset_index()
     gp_ds=gp_ds.rename(columns={gp_ds.columns[0][0]:'detail_type'})
     # gp_ds['detail_type']=gp_ds.apply(lambda row: set_value(row['detail_type'], datafile), axis=1)
-    gp_ds['detail_type']=gp_ds.apply(lambda row: datafile + '.' + row['detail_type'].values[0], axis=1)
     for col in agg_cols:
-        out['detail_type']=gp_ds['detail_type']
+        out['detail_type']=gp_ds.apply(lambda row: datafile + '.' + row['detail_type'].values[0] + '.' + col, axis=1)
         out['detail_cnt']=gp_ds[col, 'count']
         out['detail_amt']=gp_ds[col, 'sum']
         out_ds=out_ds.append(out)
@@ -136,9 +145,9 @@ if __name__ == "__main__":
 
     if(len(sys.argv) == 1):
         # parser.print_help()
-        # args=parser.parse_args('--config ./account_detail.yaml'.split())
-        # args=parser.parse_args('--yyyymmdd 20190526 --config ./account_detail.yaml --section accounting'.split())
-        args=parser.parse_args('--workdir G:/myjb --yyyymmdd 20190526 --config ./account_detail.yaml --section loan_detail'.split())
+        args=parser.parse_args('--config ./account_detail.yaml'.split())
+        # args=parser.parse_args('--yyyymmdd 20190526 --config ./account_detail.yaml --section arg_status_change'.split())
+        # args=parser.parse_args('--workdir G:/myjb --yyyymmdd 20190526 --config ./account_detail.yaml --section loan_detail'.split())
     else:
         args=parser.parse_args()
 
@@ -157,6 +166,8 @@ if __name__ == "__main__":
     config['workdir']=workdir
     if(yyyymmdd!=None):
         config['yyyymmdd']=yyyymmdd
+    else:
+        yyyymmdd=config.get("yyyymmdd", '20190101')
     
     TemplateLoader = FileSystemLoader(searchpath=['.'])
     env = Environment(loader=TemplateLoader, variable_start_string='${', variable_end_string='}')
@@ -165,6 +176,8 @@ if __name__ == "__main__":
     config_dic = yaml.load(content)
 
     glob_config=config_dic.get("config", None)
+    outdir=glob_config.get('outdir', '.')
+
     relationdatafile=glob_config.get('relationdata', None)
     mayi_3=glob_config.get('mayi_3', None)
     ret_code, ret_msg, relation_ds=read_csv(relationdatafile)
@@ -174,7 +187,7 @@ if __name__ == "__main__":
     else:
         raise Exception("section[{}] read_csv error[{}]".format('relationdata', ret_msg))  
 
-    # out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
+    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
 
     section_list=['accounting', 'loan_detail', 'loan_calc', 'arg_status_change', 'repay_loan_detail', 'exempt_loan_detail',  'repay_plan', 'loan_init']
     section_name=args.section
@@ -205,15 +218,17 @@ if __name__ == "__main__":
             if(action!=None and action!=''):
                 func=globals().get(action)
                 if(func!=None):
-                    ret_code, ret_msg, ds, relation_ds, out_ds=func(ds, relation_ds, groupby, agg_cols, glob_config, file_dict)
+                    ret_code, ret_msg, ds, relation_ds, out_ds=func(ds, relation_ds, out_ds, groupby, agg_cols, glob_config, file_dict)
                     if(ret_code!=0):
                         raise Exception("section[{}] func[{}] error[{}]".format(section, action, ret_msg))  
                 else:
                     print("section[{}] find function[{}] error".format(section, action))
-
+        
+        write_csv(ds, outdir, section+'.csv')
         del ds
         gc.collect()
 
     out_ds['openday']=yyyymmdd
     print(out_ds)
-
+    write_csv(out_ds, outdir, 'detail_stat.' + yyyymmdd + '.csv')
+    write_csv(relation_ds, outdir, 'contract_no_3.' + yyyymmdd + '.csv')
