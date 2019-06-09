@@ -85,21 +85,28 @@ def read_csv(infile, column_dict=None, checkfile=None):
     
     return ret_code, ret_msg, optimized_ds
 
-def aggregate_detail(ds, relation_ds, out_ds, groupby, agg_cols, glob_conf, section_conf):
+def set_value(row, prefix):
+    detail_type=prefix + '.' + row.values[0]
+
+def aggregate_detail(ds, relation_ds, groupby, agg_cols, glob_conf, section_conf):
     ret_msg=None
     ret_code=0
 
     datafile=section_conf.get('datafile', None)
     out=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
+    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
     columns=groupby + agg_cols
     gp_ds=ds[columns].groupby(groupby).agg(['count', 'sum'])
-    gp_ds.reset_index()
+    gp_ds=gp_ds.reset_index()
+    gp_ds=gp_ds.rename(columns={gp_ds.columns[0][0]:'detail_type'})
+    # gp_ds['detail_type']=gp_ds.apply(lambda row: set_value(row['detail_type'], datafile), axis=1)
+    gp_ds['detail_type']=gp_ds.apply(lambda row: datafile + '.' + row['detail_type'].values[0], axis=1)
     for col in agg_cols:
-        out['detail_type']=gp_ds.apply(lambda row: datafile + '.' + row.values[0])
+        out['detail_type']=gp_ds['detail_type']
         out['detail_cnt']=gp_ds[col, 'count']
         out['detail_amt']=gp_ds[col, 'sum']
-        out_ds.append(out)
-    return ret_code
+        out_ds=out_ds.append(out)
+    return ret_code, ret_msg, out_ds
     
 if __name__ == "__main__":
     # 测试用
@@ -152,7 +159,7 @@ if __name__ == "__main__":
     else:
         raise Exception("section[{}] read_csv error[{}]".format('relationdata', ret_msg))  
 
-    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
+    # out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
 
     section_list=['accounting', 'loan_detail', 'loan_calc', 'arg_status_change', 'repay_loan_detail', 'exempt_loan_detail',  'repay_plan', 'loan_init']
     section_name=args.section
@@ -183,7 +190,7 @@ if __name__ == "__main__":
             if(action!=None and action!=''):
                 func=globals().get(action)
                 if(func!=None):
-                    ret_code, ret_msg=func(ds, relation_ds, out_ds, groupby, agg_cols, glob_config, file_dict)
+                    ret_code, ret_msg, out_ds=func(ds, relation_ds, groupby, agg_cols, glob_config, file_dict)
                     if(ret_code!=0):
                         raise Exception("section[{}] func[{}] error[{}]".format(section, action, ret_msg))  
                 else:
@@ -191,3 +198,7 @@ if __name__ == "__main__":
 
         del ds
         gc.collect()
+
+    out_ds['openday']=yyyymmdd
+    print(out_ds)
+
