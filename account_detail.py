@@ -92,6 +92,20 @@ def aggregate_detail(ds, relation_ds, groupby, agg_cols, glob_conf, section_conf
     ret_msg=None
     ret_code=0
 
+    mayi_2=glob_config.get('mayi_2', None)
+    mayi_3=glob_config.get('mayi_3', None)
+    if('prod_code' in ds.columns):
+        mayi_ds=ds[['contract_no', 'prod_code']]
+        mayi_ds=mayi_ds.loc[mayi_ds['prod_code']==mayi_3]
+        print("before merge shape[{}]".format(relation_ds.shape))
+        relation_ds=pd.merge(relation_ds, mayi_ds, how='outer', on=['contract_no', 'prod_code'])
+        relation_ds['prod_code']=relation_ds['prod_code'].astype('category')
+        print("after merge shape[{}]".format(relation_ds.shape))
+    else:
+        # ds.insert(0, 'prod_code')
+        ds=pd.merge(ds, relation_ds, how='left', on='contract_no')
+        ds['prod_code']=ds['prod_code'].fillna(mayi_2)
+
     datafile=section_conf.get('datafile', None)
     out=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
     out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
@@ -106,7 +120,7 @@ def aggregate_detail(ds, relation_ds, groupby, agg_cols, glob_conf, section_conf
         out['detail_cnt']=gp_ds[col, 'count']
         out['detail_amt']=gp_ds[col, 'sum']
         out_ds=out_ds.append(out)
-    return ret_code, ret_msg, out_ds
+    return ret_code, ret_msg, ds, relation_ds, out_ds
     
 if __name__ == "__main__":
     # 测试用
@@ -152,9 +166,10 @@ if __name__ == "__main__":
 
     glob_config=config_dic.get("config", None)
     relationdatafile=glob_config.get('relationdata', None)
+    mayi_3=glob_config.get('mayi_3', None)
     ret_code, ret_msg, relation_ds=read_csv(relationdatafile)
     if(ret_code==0):
-        relation_ds['prod_code']='J1010100100000000004_3'
+        relation_ds['prod_code']=mayi_3
         relation_ds['prod_code']=relation_ds['prod_code'].astype('category')
     else:
         raise Exception("section[{}] read_csv error[{}]".format('relationdata', ret_msg))  
@@ -190,7 +205,7 @@ if __name__ == "__main__":
             if(action!=None and action!=''):
                 func=globals().get(action)
                 if(func!=None):
-                    ret_code, ret_msg, out_ds=func(ds, relation_ds, groupby, agg_cols, glob_config, file_dict)
+                    ret_code, ret_msg, ds, relation_ds, out_ds=func(ds, relation_ds, groupby, agg_cols, glob_config, file_dict)
                     if(ret_code!=0):
                         raise Exception("section[{}] func[{}] error[{}]".format(section, action, ret_msg))  
                 else:

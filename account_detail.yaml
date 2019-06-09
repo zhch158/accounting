@@ -4,6 +4,8 @@ config:
     workdir: G:/myjb
     dbconfig: ./database.ini
     relationdata: ${workdir}/contract_no_3.csv
+    mayi_2: J1010100100000000004_2
+    mayi_3: J1010100100000000004_3
     
 accounting:
     path: ${workdir}/accounting/${yyyymmdd}
