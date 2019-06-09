@@ -85,34 +85,21 @@ def read_csv(infile, column_dict=None, checkfile=None):
     
     return ret_code, ret_msg, optimized_ds
 
-@timer_para(repeat=3, number=1)
-def pandas_sum(ds, sum_col='prin_bal'):
-    df = ds
-    # df.groupby(df.encash_amt).value.sum().compute()
-    amt=df[sum_col].sum()/100
-    print("rows[%d], amt[%.2f]" %(df.shape[0], amt))
-
-def instmnt_init(infile, columns_types=None, check_file=None):
+def aggregate_detail(ds, relation_ds, out_ds, groupby, agg_cols, glob_conf, section_conf):
     ret_msg=None
     ret_code=0
-    before_mem = memory_profiler.memory_usage()
-    print("Memory (Before): {}Mb".format(before_mem))
-    ret_code, ret_msg, ds=read_csv(infile, columns_types, check_file)
-    if(ret_code!=0):
-        print(ret_msg)
-    after_mem = memory_profiler.memory_usage()
-    print("Memory (After): {}Mb".format(after_mem))
-    if(ret_code!=0):
-        print(ret_msg)
-    else:
-        pandas_sum(ds)
-    after_mem = memory_profiler.memory_usage()
-    print("Memory (After): {}Mb".format(after_mem))
 
-    del ds
-    gc.collect()
-    after_mem = memory_profiler.memory_usage()
-    print("Memory (After): {}Mb".format(after_mem))
+    datafile=section_conf.get('datafile', None)
+    out=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
+    columns=groupby + agg_cols
+    gp_ds=ds[columns].groupby(groupby).agg(['count', 'sum'])
+    gp_ds.reset_index()
+    for col in agg_cols:
+        out['detail_type']=gp_ds.apply(lambda row: datafile + '.' + row.values[0])
+        out['detail_cnt']=gp_ds[col, 'count']
+        out['detail_amt']=gp_ds[col, 'sum']
+        out_ds.append(out)
+    return ret_code
     
 if __name__ == "__main__":
     # 测试用
@@ -128,9 +115,9 @@ if __name__ == "__main__":
 
     if(len(sys.argv) == 1):
         # parser.print_help()
-        args=parser.parse_args('--config ./account_detail.yaml'.split())
+        # args=parser.parse_args('--config ./account_detail.yaml'.split())
         # args=parser.parse_args('--yyyymmdd 20190526 --config ./account_detail.yaml --section accounting'.split())
-        # args=parser.parse_args('--workdir G:/myjb --yyyymmdd 20190526 --config ./account_detail.yaml --section instmnt_init'.split())
+        args=parser.parse_args('--workdir G:/myjb --yyyymmdd 20190526 --config ./account_detail.yaml --section loan_detail'.split())
     else:
         args=parser.parse_args()
 
@@ -156,17 +143,18 @@ if __name__ == "__main__":
     content = md01.render(config)
     config_dic = yaml.load(content)
 
-    config=config_dic.get("config", None)
-    relationdatafile=config.get('relationdata', None)
+    glob_config=config_dic.get("config", None)
+    relationdatafile=glob_config.get('relationdata', None)
     ret_code, ret_msg, relation_ds=read_csv(relationdatafile)
     if(ret_code==0):
         relation_ds['prod_code']='J1010100100000000004_3'
         relation_ds['prod_code']=relation_ds['prod_code'].astype('category')
     else:
-        print(ret_msg)
-        sys.exit(1)
+        raise Exception("section[{}] read_csv error[{}]".format('relationdata', ret_msg))  
 
-    section_list=['accounting', 'loan_detail', 'loan_calc', 'arg_status_change', 'repay_loan_detail', 'exempt_loan_detail',  'repay_plan', 'loan_init', 'instmnt_init']
+    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
+
+    section_list=['accounting', 'loan_detail', 'loan_calc', 'arg_status_change', 'repay_loan_detail', 'exempt_loan_detail',  'repay_plan', 'loan_init']
     section_name=args.section
 
     for section in section_list:
@@ -178,19 +166,28 @@ if __name__ == "__main__":
             print("Not found [%s]" %section)
             break
 
+        print("\n\nNow begin deal section[{}]".format(section))
         filepath=file_dict.get('path', None)
         datafile=file_dict.get('datafile', None)
         checkfile=file_dict.get('checkfile', None)
         columns_types=file_dict.get('columns_types', None)
         groupby=file_dict.get('groupby', None)
-        aggregate=file_dict.get('aggregate', None)
+        agg_cols=file_dict.get('agg_cols', None)
+        action=file_dict.get('action', None)
         data_file=get_file(filepath, datafile)
         check_file=get_file(filepath, checkfile)
         ret_code, ret_msg, ds=read_csv(data_file, columns_types, check_file)
         if(ret_code!=0):
-            print(ret_msg)
-        # else:
-        #     pandas_sum(ds)
+            raise Exception("section[{}] read_csv error[{}]".format(section, ret_msg))  
+        else:
+            if(action!=None and action!=''):
+                func=globals().get(action)
+                if(func!=None):
+                    ret_code, ret_msg=func(ds, relation_ds, out_ds, groupby, agg_cols, glob_config, file_dict)
+                    if(ret_code!=0):
+                        raise Exception("section[{}] func[{}] error[{}]".format(section, action, ret_msg))  
+                else:
+                    print("section[{}] find function[{}] error".format(section, action))
+
         del ds
         gc.collect()
-

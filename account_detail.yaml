@@ -9,9 +9,6 @@ accounting:
     path: ${workdir}/accounting/${yyyymmdd}
     datafile: accounting
     checkfile: check_accounting
-    columns_types: {}
-    groupby: []
-    aggregate: [count, sum]
 
 loan_detail:
     path: ${workdir}/loan/${yyyymmdd}
@@ -27,9 +24,9 @@ loan_detail:
         'int_repay_frequency': 'category', 'guarantee_type': 'category', 
         'credit_no': 'object', 'encash_acct_type': 'category', 'encash_acct_no': 'object', 
         'repay_acct_type': 'category', 'repay_acct_no': 'object', 'apply_no': 'object'}
-    groupby: 
-    aggregate: [count, sum]
-    relation: ${relationdata} 
+    groupby: [prod_code]
+    agg_cols: ['encash_amt']
+    action: aggregate_detail
 
 repay_plan:
     path: ${workdir}/loan/${yyyymmdd}
@@ -38,9 +35,9 @@ repay_plan:
     columns_types: {'contract_no': 'category', 'term_no': 'category', 
         'start_date': 'category', 'end_date': 'category', 
         'prin_amt': 'int32', 'int_amt': 'int32'}
-    groupby: 
-    aggregate: [count, sum]
-    relation: ${relationdata} 
+    groupby: [prod_code]
+    agg_cols: ['prin_amt', 'int_amt']
+    action: aggregate_detail
 
 loan_calc:
     path: ${workdir}/calc/${yyyymmdd}
@@ -50,9 +47,9 @@ loan_calc:
         'accrued_status': 'category', 'prin_bal': 'category', 'ovd_prin_bal': 'category', 
         'ovd_int_bal': 'category', 'real_rate': 'category', 'pnlt_rate': 'category', 
         'int_amt': 'int32', 'ovd_prin_pnlt_amt': 'int32', 'ovd_int_pnlt_amt': 'int32'}
-    groupby: 
-    aggregate: [count, sum]
-    relation: ${relationdata} 
+    groupby: [prod_code]
+    agg_cols: ['int_amt', 'ovd_prin_pnlt_amt', 'ovd_int_pnlt_amt']
+    action: aggregate_detail
 
 arg_status_change:
     path: ${workdir}/change/${yyyymmdd}
@@ -62,18 +59,18 @@ arg_status_change:
         'seq_no': 'object', 'event_code': 'category', 'before_status': 'category', 
         'after_status': 'category', 'prin_amt': 'int32', 'int_amt': 'int32', 
         'ovd_prin_pnlt_amt': 'int32', 'ovd_int_pnlt_amt': 'int32'}
-    groupby: 
-    aggregate: [count, sum]
-    relation: ${relationdata} 
+    groupby: [prod_code]
+    agg_cols: ['prin_amt', 'int_amt', 'ovd_prin_pnlt_amt', 'ovd_int_pnlt_amt']
+    action: aggregate_detail
 
 exempt_loan_detail:
     path: ${workdir}/exempt/${yyyymmdd}
     datafile: exempt_loan_detail
     checkfile: check_exempt_loan_detail
     columns_types: 
-    groupby: 
-    aggregate: [count, sum]
-    relation: ${relationdata} 
+    groupby: [prod_code]
+    agg_cols: ['exempt_int_amt', 'exempt_ovd_int_amt']
+    action: aggregate_detail
 
 loan_init:
     path: ${workdir}/init/${yyyymmdd}
@@ -86,9 +83,6 @@ loan_init:
         'prin_ovd_days': 'category', 'int_ovd_days': 'category', 
         'prin_bal': 'int32', 'ovd_prin_bal': 'int32', 'int_bal': 'int32', 
         'ovd_int_bal': 'int32', 'ovd_prin_pnlt_bal': 'int32', 'ovd_int_pnlt_bal': 'int32'}
-    groupby: 
-    aggregate: [count, sum]
-    relation: ${relationdata} 
 
 repay_loan_detail:
     path: ${workdir}/repay/${yyyymmdd}
@@ -102,9 +96,10 @@ repay_loan_detail:
         'repay_amt': 'category', 'paid_prin_amt': 'int32', 'paid_ovd_prin_amt': 'int32', 
         'paid_int_amt': 'int32', 'paid_ovd_int_amt': 'int32', 
         'paid_ovd_prin_pnlt_amt': 'int32', 'paid_ovd_int_pnlt_amt': 'int32', 'fee_amt': 'int32'}
-    groupby: 
-    aggregate: [count, sum]
-    relation: ${relationdata} 
+    groupby: [prod_code]
+    agg_cols: ['paid_prin_amt', 'paid_ovd_prin_amt', 'paid_int_amt', 
+        'paid_ovd_int_amt', 'paid_ovd_prin_pnlt_amt', 'paid_ovd_int_pnlt_amt', 'fee_amt']
+    action: aggregate_detail
 
 instmnt_init:
     path: ${workdir}/init/${yyyymmdd}
@@ -115,6 +110,3 @@ instmnt_init:
         'prin_ovd_date': 'category', 'int_ovd_date': 'category', 'prin_ovd_days': 'category', 
         'int_ovd_days': 'category', 
         'prin_bal': 'int32', 'int_bal': 'int32', 'ovd_prin_pnlt_bal': 'int32', 'ovd_int_pnlt_bal': 'int32'}
-    groupby: 
-    aggregate: [count, sum]
-    relation: ${relationdata} 
