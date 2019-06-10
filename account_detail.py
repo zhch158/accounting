@@ -3,9 +3,10 @@ import os,sys
 import argparse
 import pandas as pd
 from pandas.api.types import CategoricalDtype
+# import pandas.api.types as pd_types
+# from numba import jit, autojit 
 import yaml
 
-import pandas.api.types as pd_types
 import memory_profiler
 from utils import timer_para, get_file, load_from_yaml
 import gc
@@ -21,7 +22,6 @@ def mem_usage(pandas_obj):
     return "{:03.2f} MB".format(usage_mb)
 
 @timer_para(repeat=1, number=1)
-# @timeit(repeat=3, number=1)
 def read_csv(infile, column_dict=None, checkfile=None):
     # time_start=time.time()
     # ds = dd.read_csv('g:/myjb/loan/20190526/loan_detail__47e2718a_accd_4e81_8d69_609e6a5cfbe7')
@@ -30,11 +30,11 @@ def read_csv(infile, column_dict=None, checkfile=None):
     ret_code=0
     if(column_dict!=None and len(column_dict)>0):
         optimized_ds = pd.read_csv(infile, dtype=column_dict)
-        print('read_csv[%s] shape[%s]' %(infile, optimized_ds.shape))
+        print('read_csv[{}] shape[{}]'.format(infile, optimized_ds.shape))
         print(optimized_ds.info(memory_usage='deep'))
     else:
         ds = pd.read_csv(infile)
-        print('read_csv[%s] shape[%s]' %(infile, ds.shape))
+        print('read_csv[{}] shape[{}]'.format(infile, ds.shape))
         print(ds.info(memory_usage='deep'))
         # print("mem[%.2f]MB" %(ds.memory_usage(deep=true).sum()/1024/1024))
         if(ds.shape[0]>0):
@@ -101,6 +101,7 @@ def set_value(row, datafile, groupby, col):
     return detail_type
 
 @timer_para(repeat=1, number=1)
+# @autojit
 def aggregate_detail(ds, relation_ds, out_ds, groupby, agg_cols, glob_conf, section_conf):
     ret_msg=None
     ret_code=0
@@ -199,6 +200,7 @@ if __name__ == "__main__":
     mayi_2=glob_config.get('mayi_2', None)
     mayi_3=glob_config.get('mayi_3', None)
     mayi_type = CategoricalDtype(categories=[mayi_2, mayi_3])
+
     ret_code, ret_msg, relation_ds=read_csv(relationdatafile)
     if(ret_code==0):
         relation_ds['prod_code']=mayi_3
@@ -251,3 +253,4 @@ if __name__ == "__main__":
     print(out_ds)
     write_csv(out_ds, outdir, 'detail_stat.' + yyyymmdd + '.csv')
     write_csv(relation_ds, outdir, 'contract_no_3.' + yyyymmdd + '.csv')
+    sys.exit(0)
