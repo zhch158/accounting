@@ -91,8 +91,12 @@ def write_csv(ds, outdir, section):
     o_file= os.path.join(outdir, section)
     ds.to_csv(o_file, encoding='utf-8', index=False, header=True)
 
-def set_value(row, prefix):
-    detail_type=prefix + '.' + row.values[0]
+def set_value(row, datafile, groupby, col):
+    detail_type=datafile + '.'
+    for group_col in groupby:
+        detail_type += row[group_col].values[0] + '.'
+    detail_type+=col
+    return detail_type
 
 def aggregate_detail(ds, relation_ds, out_ds, groupby, agg_cols, glob_conf, section_conf):
     ret_msg=None
@@ -132,10 +136,10 @@ def aggregate_detail(ds, relation_ds, out_ds, groupby, agg_cols, glob_conf, sect
         columns=groupby + agg_cols
         gp_ds=ds[columns].groupby(groupby).agg(['count', 'sum'])
         gp_ds=gp_ds.reset_index()
-        gp_ds=gp_ds.rename(columns={gp_ds.columns[0][0]:'detail_type'})
-        # gp_ds['detail_type']=gp_ds.apply(lambda row: set_value(row['detail_type'], datafile), axis=1)
+        # gp_ds=gp_ds.rename(columns={gp_ds.columns[0][0]:'detail_type'})
         for col in agg_cols:
-            out['detail_type']=gp_ds.apply(lambda row: datafile + '.' + row['detail_type'].values[0] + '.' + col, axis=1)
+            # out['detail_type']=gp_ds.apply(lambda row: datafile + '.' + row['detail_type'].values[0] + '.' + col, axis=1)
+            out['detail_type']=gp_ds.apply(lambda row: set_value(row, datafile, groupby, col), axis=1)
             out['detail_cnt']=gp_ds[col, 'count']
             out['detail_amt']=gp_ds[col, 'sum']
             out_ds=out_ds.append(out)
@@ -155,9 +159,9 @@ if __name__ == "__main__":
 
     if(len(sys.argv) == 1):
         # parser.print_help()
-        args=parser.parse_args('--config ./account_detail.yaml'.split())
+        # args=parser.parse_args('--config ./account_detail.yaml'.split())
         # args=parser.parse_args('--yyyymmdd 20190526 --config ./account_detail.yaml --section arg_status_change'.split())
-        # args=parser.parse_args('--workdir G:/myjb --yyyymmdd 20190526 --config ./account_detail.yaml --section loan_detail'.split())
+        args=parser.parse_args('--workdir G:/myjb --yyyymmdd 20190526 --config ./account_detail.yaml --section arg_status_change'.split())
     else:
         args=parser.parse_args()
 

@@ -63,7 +63,7 @@ arg_status_change:
         'seq_no': 'object', 'event_code': 'category', 'before_status': 'category', 
         'after_status': 'category', 'prin_amt': 'int32', 'int_amt': 'int32', 
         'ovd_prin_pnlt_amt': 'int32', 'ovd_int_pnlt_amt': 'int32'}
-    groupby: [prod_code]
+    groupby: [prod_code, event_code]
     agg_cols: ['prin_amt', 'int_amt', 'ovd_prin_pnlt_amt', 'ovd_int_pnlt_amt']
     action: aggregate_detail
 
