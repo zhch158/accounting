@@ -50,8 +50,8 @@ loan_calc:
         'accrued_status': 'category', 'prin_bal': 'category', 'ovd_prin_bal': 'category', 
         'ovd_int_bal': 'category', 'real_rate': 'category', 'pnlt_rate': 'category', 
         'int_amt': 'int32', 'ovd_prin_pnlt_amt': 'int32', 'ovd_int_pnlt_amt': 'int32'}
-    # groupby: [prod_code]
-    groupby: 
+    groupby: [prod_code]
+    # groupby: 
     agg_cols: ['int_amt', 'ovd_prin_pnlt_amt', 'ovd_int_pnlt_amt']
     action: aggregate_detail
 
