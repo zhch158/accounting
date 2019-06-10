@@ -119,16 +119,26 @@ def aggregate_detail(ds, relation_ds, out_ds, groupby, agg_cols, glob_conf, sect
     datafile=section_conf.get('datafile', None)
     out=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
     # out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
-    columns=groupby + agg_cols
-    gp_ds=ds[columns].groupby(groupby).agg(['count', 'sum'])
-    gp_ds=gp_ds.reset_index()
-    gp_ds=gp_ds.rename(columns={gp_ds.columns[0][0]:'detail_type'})
-    # gp_ds['detail_type']=gp_ds.apply(lambda row: set_value(row['detail_type'], datafile), axis=1)
-    for col in agg_cols:
-        out['detail_type']=gp_ds.apply(lambda row: datafile + '.' + row['detail_type'].values[0] + '.' + col, axis=1)
-        out['detail_cnt']=gp_ds[col, 'count']
-        out['detail_amt']=gp_ds[col, 'sum']
+
+    if(groupby==None or len(groupby)==0):
+        columns=agg_cols
+        gp_ds=ds[columns].agg(['count', 'sum'])
+        for col in agg_cols:
+            out=out.append({'detail_type':datafile + '.' + col, 
+                'detail_cnt':gp_ds[col].loc['count'], 
+                'detail_amt':gp_ds[col].loc['sum']}, ignore_index=True)
         out_ds=out_ds.append(out)
+    else:
+        columns=groupby + agg_cols
+        gp_ds=ds[columns].groupby(groupby).agg(['count', 'sum'])
+        gp_ds=gp_ds.reset_index()
+        gp_ds=gp_ds.rename(columns={gp_ds.columns[0][0]:'detail_type'})
+        # gp_ds['detail_type']=gp_ds.apply(lambda row: set_value(row['detail_type'], datafile), axis=1)
+        for col in agg_cols:
+            out['detail_type']=gp_ds.apply(lambda row: datafile + '.' + row['detail_type'].values[0] + '.' + col, axis=1)
+            out['detail_cnt']=gp_ds[col, 'count']
+            out['detail_amt']=gp_ds[col, 'sum']
+            out_ds=out_ds.append(out)
     return ret_code, ret_msg, ds, relation_ds, out_ds
     
 if __name__ == "__main__":
