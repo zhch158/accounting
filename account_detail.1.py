@@ -1,6 +1,5 @@
 # coding=utf-8   //这句是使用utf8编码方式方法， 可以单独加入python头使用
 import os,sys
-import threading
 import argparse
 import pandas as pd
 from pandas.api.types import CategoricalDtype
@@ -9,7 +8,7 @@ from pandas.api.types import CategoricalDtype
 import yaml
 
 import memory_profiler
-from utils import timer_para, get_file, load_from_yaml, MyThread
+from utils import timer_para, get_file, load_from_yaml
 import gc
 
 from jinja2 import Environment, FileSystemLoader, Template
@@ -103,11 +102,9 @@ def set_value(row, datafile, groupby, col):
 
 @timer_para(repeat=1, number=1)
 # @autojit
-def aggregate_detail(ds, relation_ds, groupby, agg_cols, glob_conf, section_conf):
+def aggregate_detail(ds, relation_ds, out_ds, groupby, agg_cols, glob_conf, section_conf):
     ret_msg=None
     ret_code=0
-    out=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
-    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
     if(ds.shape[0]==0):
         return ret_code, ret_msg, ds, relation_ds, out_ds
 
@@ -128,6 +125,8 @@ def aggregate_detail(ds, relation_ds, groupby, agg_cols, glob_conf, section_conf
         # ds['prod_code']=ds['prod_code'].astype('category')
 
     datafile=section_conf.get('datafile', None)
+    out=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
+    # out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
 
     if(groupby==None or len(groupby)==0):
         columns=agg_cols
@@ -150,44 +149,6 @@ def aggregate_detail(ds, relation_ds, groupby, agg_cols, glob_conf, section_conf
             out_ds=out_ds.append(out)
     return ret_code, ret_msg, ds, relation_ds, out_ds
     
-def deal_csv(section, file_dict, glob_conf, relation_ds):
-    ret_code=0
-    ret_msg=None
-
-    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
-    print("\n\nNow begin deal section[{}]".format(section))
-    filepath=file_dict.get('path', None)
-    datafile=file_dict.get('datafile', None)
-    checkfile=file_dict.get('checkfile', None)
-    columns_types=file_dict.get('columns_types', None)
-    groupby=file_dict.get('groupby', None)
-    agg_cols=file_dict.get('agg_cols', None)
-    action=file_dict.get('action', None)
-
-    data_file=get_file(filepath, datafile)
-    check_file=get_file(filepath, checkfile)
-
-    ret_code, ret_msg, ds=read_csv(data_file, columns_types, check_file)
-    if(ret_code!=0):
-        return ret_code, ret_msg, relation_ds, out_ds
-        # raise Exception("section[{}] read_csv error[{}]".format(section, ret_msg))  
-    else:
-        if(action!=None and action!=''):
-            func=globals().get(action)
-            if(func!=None):
-                ret_code, ret_msg, ds, relation_ds, out_ds=func(ds, relation_ds, groupby, agg_cols, glob_config, file_dict)
-                if(ret_code!=0):
-                    return ret_code, ret_msg, relation_ds, out_ds
-                    # raise Exception("section[{}] func[{}] error[{}]".format(section, action, ret_msg))  
-            else:
-                print("\ndatafile[{}] find function[{}] error".format(datafile, action))
-    
-    outdir=glob_conf.get('outdir', '.')
-    write_csv(ds, outdir, datafile+'.csv')
-    del ds
-    gc.collect()
-    return ret_code, ret_msg, relation_ds, out_ds
-
 if __name__ == "__main__":
     # 测试用
     parser=argparse.ArgumentParser(description='根据配置文件，加工明细数据')
@@ -202,9 +163,9 @@ if __name__ == "__main__":
 
     if(len(sys.argv) == 1):
         # parser.print_help()
-        args=parser.parse_args('--config ./account_detail.yaml'.split())
+        # args=parser.parse_args('--config ./account_detail.yaml'.split())
         # args=parser.parse_args('--yyyymmdd 20190526 --config ./account_detail.yaml --section arg_status_change'.split())
-        # args=parser.parse_args('--workdir G:/myjb --yyyymmdd 20190526 --config ./account_detail.yaml --section arg_status_change'.split())
+        args=parser.parse_args('--workdir G:/myjb --yyyymmdd 20190526 --config ./account_detail.yaml --section arg_status_change'.split())
     else:
         args=parser.parse_args()
 
@@ -247,54 +208,49 @@ if __name__ == "__main__":
     else:
         raise Exception("section[{}] read_csv error[{}]".format('relationdata', ret_msg))  
 
-    section_list_single=['accounting', 'loan_detail']
-    section_list_multiple=['loan_calc', 'arg_status_change', 'repay_loan_detail', 'exempt_loan_detail',  'repay_plan', 'loan_init']
+    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
+
+    section_list=['accounting', 'loan_detail', 'loan_calc', 'arg_status_change', 'repay_loan_detail', 'exempt_loan_detail',  'repay_plan', 'loan_init']
     section_name=args.section
 
-    out_ds_list={}
-    for section in section_list_single:
+    for section in section_list:
         if(section_name!=None):
             if(section!=section_name):
                 continue
         file_dict=config_dic.get(section, None)
         if(file_dict==None):
-            raise Exception("section[{}] not found".format(section))  
+            print("Not found [%s]" %section)
+            break
 
-        ret_code, ret_msg, relation_ds, out_ds_list[section] =deal_csv(section, file_dict, glob_config, relation_ds)
+        print("\n\nNow begin deal section[{}]".format(section))
+        filepath=file_dict.get('path', None)
+        datafile=file_dict.get('datafile', None)
+        checkfile=file_dict.get('checkfile', None)
+        columns_types=file_dict.get('columns_types', None)
+        groupby=file_dict.get('groupby', None)
+        agg_cols=file_dict.get('agg_cols', None)
+        action=file_dict.get('action', None)
+        data_file=get_file(filepath, datafile)
+        check_file=get_file(filepath, checkfile)
+        ret_code, ret_msg, ds=read_csv(data_file, columns_types, check_file)
         if(ret_code!=0):
-            raise Exception("section[{}] func[{}] error[{}]".format(section, 'deal_csv', ret_msg))  
+            raise Exception("section[{}] read_csv error[{}]".format(section, ret_msg))  
+        else:
+            if(action!=None and action!=''):
+                func=globals().get(action)
+                if(func!=None):
+                    ret_code, ret_msg, ds, relation_ds, out_ds=func(ds, relation_ds, out_ds, groupby, agg_cols, glob_config, file_dict)
+                    if(ret_code!=0):
+                        raise Exception("section[{}] func[{}] error[{}]".format(section, action, ret_msg))  
+                else:
+                    print("section[{}] find function[{}] error".format(section, action))
+        
+        write_csv(ds, outdir, section+'.csv')
+        del ds
+        gc.collect()
 
-    threads=[]
-    threads_num=0
-    for section in section_list_multiple:
-        if(section_name!=None):
-            if(section!=section_name):
-                continue
-        file_dict=config_dic.get(section, None)
-        if(file_dict==None):
-            raise Exception("section[{}] not found".format(section))  
-
-        t=MyThread(deal_csv,args=(section, file_dict, glob_config, relation_ds))
-        threads.append(t)
-        t.start()
-        threads_num+=1
-        # print("\n\nNow begin deal section[{}]".format(section))
-        # ret_code, ret_msg, relation_ds, out_ds =deal_csv(file_dict, glob_config, relation_ds, out_ds)
-        # if(ret_code!=0):
-        #     raise Exception("section[{}] func[{}] error[{}]".format(section, 'deal_csv', ret_msg))  
-
-    for t in threads:
-        t.join()  # 一定要join，不然主线程比子线程跑的快，会拿不到结果
-        ret_code, ret_msg, relation_ds, out_ds_list[t.args[0]] = t.get_result()
-        if(ret_code!=0):
-            raise Exception("thread[{}] func[{}] error[{}]".format(t, 'deal_csv', ret_msg))  
-
-    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
-    for key, ds in out_ds_list.items():
-        out_ds=out_ds.append(ds)
     out_ds['openday']=yyyymmdd
     print(out_ds)
-
     write_csv(out_ds, outdir, 'detail_stat.' + yyyymmdd + '.csv')
     write_csv(relation_ds, outdir, 'contract_no_3.' + yyyymmdd + '.csv')
     sys.exit(0)

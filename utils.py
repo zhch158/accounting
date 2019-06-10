@@ -1,5 +1,6 @@
 # coding=utf-8   //这句是使用utf8编码方式方法， 可以单独加入python头使用
 import os
+import threading
 import time
 import memory_profiler
 import yaml
@@ -38,6 +39,37 @@ def load_from_yaml(src):
     f.close()
 
     return x
+
+class MyThread(threading.Thread):
+    def __init__(self,func,args=()):
+        super(MyThread,self).__init__()
+        self.func = func
+        self.args = args
+
+    def run(self):
+        self.result = self.func(*self.args)
+
+    def get_result(self):
+        try:
+            return self.result
+
+        except Exception:
+            return None
+ 
+"""测试函数，计算两个数之和"""
+def test_fun(a,b):
+    time.sleep(1)
+    return a+b, a, b
+
+if __name__=="__main__":
+    li = []
+    for i in range(4):
+        t = MyThread(test_fun,args=(i,i+1))
+        li.append(t)
+        t.start()
+    for t in li:
+        t.join()  # 一定要join，不然主线程比子线程跑的快，会拿不到结果
+        print (t.get_result())
 
 #only support UNIX
 # import resource
