@@ -2,6 +2,7 @@
 import os,sys
 import argparse
 import pandas as pd
+from pandas.api.types import CategoricalDtype
 import yaml
 
 import pandas.api.types as pd_types
@@ -85,6 +86,7 @@ def read_csv(infile, column_dict=None, checkfile=None):
     
     return ret_code, ret_msg, optimized_ds
 
+@timer_para(repeat=1, number=1)
 def write_csv(ds, outdir, section):
     if not os.path.exists(outdir):
         os.makedirs(outdir)
@@ -98,6 +100,7 @@ def set_value(row, datafile, groupby, col):
     detail_type+=col
     return detail_type
 
+@timer_para(repeat=1, number=1)
 def aggregate_detail(ds, relation_ds, out_ds, groupby, agg_cols, glob_conf, section_conf):
     ret_msg=None
     ret_code=0
@@ -116,9 +119,9 @@ def aggregate_detail(ds, relation_ds, out_ds, groupby, agg_cols, glob_conf, sect
     else:
         # ds.insert(0, 'prod_code')
         ds=pd.merge(ds, relation_ds, how='left', on='contract_no')
-        ds['prod_code']=ds['prod_code'].astype('object')
-        ds['prod_code']=ds['prod_code'].fillna(mayi_2)
-        ds['prod_code']=ds['prod_code'].astype('category')
+        # ds['prod_code']=ds['prod_code'].astype('object')
+        ds['prod_code']=ds['prod_code'].fillna(mayi_2).astype("category")
+        # ds['prod_code']=ds['prod_code'].astype('category')
 
     datafile=section_conf.get('datafile', None)
     out=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
@@ -193,11 +196,13 @@ if __name__ == "__main__":
     outdir=glob_config.get('outdir', '.')
 
     relationdatafile=glob_config.get('relationdata', None)
+    mayi_2=glob_config.get('mayi_2', None)
     mayi_3=glob_config.get('mayi_3', None)
+    mayi_type = CategoricalDtype(categories=[mayi_2, mayi_3])
     ret_code, ret_msg, relation_ds=read_csv(relationdatafile)
     if(ret_code==0):
         relation_ds['prod_code']=mayi_3
-        relation_ds['prod_code']=relation_ds['prod_code'].astype('category')
+        relation_ds['prod_code']=relation_ds['prod_code'].astype(mayi_type)
     else:
         raise Exception("section[{}] read_csv error[{}]".format('relationdata', ret_msg))  
 
