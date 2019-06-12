@@ -18,7 +18,7 @@ def mem_usage(pandas_obj):
     if(isinstance(pandas_obj, pd.DataFrame)):
         usage_b=pandas_obj.memory_usage(deep=True).sum()
     else:
-        usage_b=pandas_obj.mem_usage(deep=True)
+        usage_b=pandas_obj.memory_usage(deep=True)
     usage_mb=usage_b/1024**2
     return "{:03.2f} MB".format(usage_mb)
 
@@ -81,7 +81,7 @@ def read_csv(infile, column_dict=None, checkfile=None):
         check_ds = pd.read_csv(checkfile)
         filename=check_ds['file_name'].values[0]
         row_count=check_ds['row_count'].values[0]
-        ret_msg='{} read [%d], checkfile[row_count=%d]'.format(filename, optimized_ds.shape[0], row_count)
+        ret_msg='{} read [{}], checkfile[row_count={}]'.format(filename, optimized_ds.shape[0], row_count)
         if(row_count!=optimized_ds.shape[0]):
             ret_code=optimized_ds.shape[0]
     

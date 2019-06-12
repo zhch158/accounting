@@ -47,8 +47,8 @@ loan_calc:
     datafile: loan_calc
     checkfile: check_loan_calc
     columns_types: {'contract_no': 'object', 'calc_date': 'category', 
-        'accrued_status': 'category', 'prin_bal': 'category', 'ovd_prin_bal': 'category', 
-        'ovd_int_bal': 'category', 'real_rate': 'category', 'pnlt_rate': 'category', 
+        'accrued_status': 'category', 'prin_bal': 'int32', 'ovd_prin_bal': 'int32', 
+        'ovd_int_bal': 'int32', 'real_rate': 'float64', 'pnlt_rate': 'float64', 
         'int_amt': 'int32', 'ovd_prin_pnlt_amt': 'int32', 'ovd_int_pnlt_amt': 'int32'}
     groupby: [prod_code]
     # groupby: 
@@ -94,10 +94,10 @@ repay_loan_detail:
     checkfile: check_repay_loan_detail
     columns_types: {'contract_no': 'object', 'seq_no': 'object', 'fee_no': 'object', 
         'withdraw_no': 'object', 'repay_type': 'category', 'repay_date': 'category', 
-        'curr_prin_bal': 'category', 'curr_ovd_prin_bal': 'category', 
-        'curr_int_bal': 'category', 'curr_ovd_int_bal': 'category', 
-        'curr_ovd_prin_pnlt_bal': 'category', 'curr_ovd_int_pnlt_bal': 'category', 
-        'repay_amt': 'category', 'paid_prin_amt': 'int32', 'paid_ovd_prin_amt': 'int32', 
+        'curr_prin_bal': 'int32', 'curr_ovd_prin_bal': 'int32', 
+        'curr_int_bal': 'int32', 'curr_ovd_int_bal': 'int32', 
+        'curr_ovd_prin_pnlt_bal': 'int32', 'curr_ovd_int_pnlt_bal': 'int32', 
+        'repay_amt': 'int32', 'paid_prin_amt': 'int32', 'paid_ovd_prin_amt': 'int32', 
         'paid_int_amt': 'int32', 'paid_ovd_int_amt': 'int32', 
         'paid_ovd_prin_pnlt_amt': 'int32', 'paid_ovd_int_pnlt_amt': 'int32', 'fee_amt': 'int32'}
     groupby: [prod_code]
