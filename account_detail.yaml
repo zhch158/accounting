@@ -1,7 +1,8 @@
 #全局设置
 config:
-    yyyymmdd: '20190526'
-    workdir: G:/myjb
+    lib: modin
+    yyyymmdd: '20190525'
+    workdir: /mnt/hgfs/myjb
     outdir: ${workdir}/output/${yyyymmdd}
     dbconfig: ./database.ini
     relationdata: ${workdir}/contract_no_3.csv

@@ -2,8 +2,7 @@
 import os,sys
 import threading
 import argparse
-import pandas as pd
-from pandas.api.types import CategoricalDtype
+
 # import pandas.api.types as pd_types
 # from numba import jit, autojit 
 import yaml
@@ -15,6 +14,9 @@ import gc
 from jinja2 import Environment, FileSystemLoader, Template
 
 def mem_usage(pandas_obj):
+    if(pandas_obj.empty):
+        return '0.00 MB'
+
     if(isinstance(pandas_obj, pd.DataFrame)):
         usage_b=pandas_obj.memory_usage(deep=True).sum()
     else:
@@ -34,7 +36,7 @@ def read_csv(infile, column_dict=None, checkfile=None):
         print('read_csv[{}] shape[{}]'.format(infile, optimized_ds.shape))
         print(optimized_ds.info(memory_usage='deep'))
     else:
-        ds = pd.read_csv(infile)
+        ds = pd.read_csv(infile, dtype=column_dict)
         print('read_csv[{}] shape[{}]'.format(infile, ds.shape))
         print(ds.info(memory_usage='deep'))
         # print("mem[%.2f]MB" %(ds.memory_usage(deep=true).sum()/1024/1024))
@@ -45,28 +47,28 @@ def read_csv(infile, column_dict=None, checkfile=None):
             
             # optimized_ds=ds.copy()
             ds_int=ds.select_dtypes(include=['int64'])
-            converted_int=ds_int.apply(pd.to_numeric, downcast='signed')
+            if(ds_int.empty==False):
+                converted_int=ds_int.apply(pd.to_numeric, downcast='signed')
+                ds[converted_int.columns]=converted_int
             ds_float=ds.select_dtypes(include=['float64'])
-            converted_float=ds_float.apply(pd.to_numeric, downcast='float')
-            ds[converted_int.columns]=converted_int
-            ds[converted_float.columns]=converted_float
+            if(ds_float.empty==False):
+                converted_float=ds_float.apply(pd.to_numeric, downcast='float')
+                ds[converted_float.columns]=converted_float
 
-            optimized_ds=pd.DataFrame()
-            for col in ds.columns:
+
+            for i, col in enumerate(ds.columns):
                 num_unique_values=len(ds[col].unique())
                 num_total_values=len(ds[col])
-                if num_unique_values/num_total_values < 0.3:
-                    optimized_ds[col]=ds[col].astype('category')
+                if(i==0):
+                    if num_unique_values/num_total_values < 0.3:
+                        optimized_ds=pd.DataFrame(ds[col], dtype='category')
+                    else:
+                        optimized_ds=pd.DataFrame(ds[col])
                 else:
-                    optimized_ds[col]=ds[col]
-                # if(pd_types.is_datetime64_dtype(ds[col])):
-                #     optimized_ds[col]=ds[col].apply(pd.to_numeric, downcast='signed')
-                # elif(pd_types.is_float_dtype(ds[col])):
-                #     optimized_ds[col]=ds[col].apply(pd.to_numeric, downcast='float')
-                # elif num_unique_values/num_total_values < 0.3:
-                #     optimized_ds[col]=ds[col].astype('category')
-                # else:
-                #     optimized_ds[col]=ds[col]
+                    if num_unique_values/num_total_values < 0.3:
+                        optimized_ds[col]=ds[col].astype('category')
+                    else:
+                        optimized_ds[col]=ds[col]
             print(optimized_ds.info(memory_usage='deep'))
 
             dtypes=optimized_ds.dtypes
@@ -97,7 +99,8 @@ def write_csv(ds, outdir, section):
 def set_value(row, datafile, groupby, col):
     detail_type=datafile + '.'
     for group_col in groupby:
-        detail_type += row[group_col].values[0] + '.'
+        # detail_type += row[group_col].values[0] + '.'
+        detail_type += row[group_col] + '.'
     detail_type+=col
     return detail_type
 
@@ -106,10 +109,9 @@ def set_value(row, datafile, groupby, col):
 def aggregate_detail(ds, relation_ds, groupby, agg_cols, glob_conf, section_conf):
     ret_msg=None
     ret_code=0
-    out=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
-    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
+    r={'detail_type':[], 'detail_cnt':[], 'detail_amt':[]}
     if(ds.shape[0]==0):
-        return ret_code, ret_msg, ds, relation_ds, out_ds
+        return ret_code, ret_msg, ds, relation_ds, pd.DataFrame(r)
 
     mayi_2=glob_config.get('mayi_2', None)
     mayi_3=glob_config.get('mayi_3', None)
@@ -122,10 +124,10 @@ def aggregate_detail(ds, relation_ds, groupby, agg_cols, glob_conf, section_conf
         print("after merge shape[{}]".format(relation_ds.shape))
     else:
         # ds.insert(0, 'prod_code')
-        ds=pd.merge(ds, relation_ds, how='left', on='contract_no')
         # ds['prod_code']=ds['prod_code'].astype('object')
-        ds['prod_code']=ds['prod_code'].fillna(mayi_2).astype("category")
         # ds['prod_code']=ds['prod_code'].astype('category')
+        ds=pd.merge(ds, relation_ds, how='left', on='contract_no')
+        ds['prod_code']=ds['prod_code'].fillna(mayi_2).astype("category")
 
     datafile=section_conf.get('datafile', None)
 
@@ -133,10 +135,9 @@ def aggregate_detail(ds, relation_ds, groupby, agg_cols, glob_conf, section_conf
         columns=agg_cols
         gp_ds=ds[columns].agg(['count', 'sum'])
         for col in agg_cols:
-            out=out.append({'detail_type':datafile + '.' + col, 
-                'detail_cnt':gp_ds[col].loc['count'], 
-                'detail_amt':gp_ds[col].loc['sum']}, ignore_index=True)
-        out_ds=out_ds.append(out)
+            r['detail_type']+=datafile + '.' + col
+            r['detail_cnt']+=gp_ds[col].loc['count'].values.tolist()
+            r['detail_amt']+=gp_ds[col].loc['sum'].values.tolist()
     else:
         columns=groupby + agg_cols
         gp_ds=ds[columns].groupby(groupby).agg(['count', 'sum'])
@@ -144,17 +145,20 @@ def aggregate_detail(ds, relation_ds, groupby, agg_cols, glob_conf, section_conf
         # gp_ds=gp_ds.rename(columns={gp_ds.columns[0][0]:'detail_type'})
         for col in agg_cols:
             # out['detail_type']=gp_ds.apply(lambda row: datafile + '.' + row['detail_type'].values[0] + '.' + col, axis=1)
-            out['detail_type']=gp_ds.apply(lambda row: set_value(row, datafile, groupby, col), axis=1)
-            out['detail_cnt']=gp_ds[col, 'count']
-            out['detail_amt']=gp_ds[col, 'sum']
-            out_ds=out_ds.append(out)
+            # out['detail_type']=gp_ds.apply(lambda row: set_value(row, datafile, groupby, col), axis=1)
+            # gp_ds_type=gp_ds.apply(set_value, axis=1, **{'datafile':datafile, 'groupby':groupby, 'col':col})
+            gp_ds_type=gp_ds.apply(set_value, axis=1, datafile=datafile, groupby=groupby, col=col)
+            r['detail_type']+=gp_ds_type.iloc[:,0].values.tolist()
+            r['detail_cnt']+=gp_ds[col, 'count'].values.tolist()
+            r['detail_amt']+=gp_ds[col, 'sum'].values.tolist()
+    out_ds=pd.DataFrame({'detail_type':r['detail_type'], 'detail_cnt':r['detail_cnt'], 'detail_amt':r['detail_amt']})
     return ret_code, ret_msg, ds, relation_ds, out_ds
     
 def deal_csv(section, file_dict, glob_conf, relation_ds):
     ret_code=0
     ret_msg=None
 
-    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
+    out_ds=pd.DataFrame({'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
     print("\n\nNow begin deal section[{}]".format(section))
     filepath=file_dict.get('path', None)
     datafile=file_dict.get('datafile', None)
@@ -195,6 +199,7 @@ if __name__ == "__main__":
     parser.add_argument('--section', '-s', dest='section', required=False, help='input section')
     parser.add_argument('--workdir', '-w', dest='workdir', required=False, help='input workdir')
     parser.add_argument('--yyyymmdd', '-d', dest='yyyymmdd', type=str, required=False, help='input date[20190101]')
+    parser.add_argument('--lib', '-l', dest='lib', type=str, required=False, help='input lib[pandas|modin]', choices=['pandas', 'modin'])
 
     # parser.print_help()
 
@@ -202,15 +207,16 @@ if __name__ == "__main__":
 
     if(len(sys.argv) == 1):
         # parser.print_help()
-        args=parser.parse_args('--config ./account_detail.yaml'.split())
-        # args=parser.parse_args('--yyyymmdd 20190526 --config ./account_detail.yaml --section arg_status_change'.split())
-        # args=parser.parse_args('--workdir G:/myjb --yyyymmdd 20190526 --config ./account_detail.yaml --section arg_status_change'.split())
+        # args=parser.parse_args('--config ./account_detail.yaml'.split())
+        args=parser.parse_args('--yyyymmdd 20190525 --config ./account_detail.yaml --section arg_status_change'.split())
+        # args=parser.parse_args('--workdir G:/myjb --yyyymmdd 20190525 --config ./account_detail.yaml --section arg_status_change'.split())
     else:
         args=parser.parse_args()
 
     configfile = args.inputfile
     workdir=args.workdir
     yyyymmdd=args.yyyymmdd
+    lib=args.lib
 
     config_dic=load_from_yaml(configfile)
 
@@ -225,6 +231,11 @@ if __name__ == "__main__":
         config['yyyymmdd']=yyyymmdd
     else:
         yyyymmdd=config.get("yyyymmdd", '20190101')
+    if(lib!=None):
+        config['lib']=lib
+    else:
+        lib=config.get("lib", 'pandas')
+    
     
     TemplateLoader = FileSystemLoader(searchpath=['.'])
     env = Environment(loader=TemplateLoader, variable_start_string='${', variable_end_string='}')
@@ -235,20 +246,34 @@ if __name__ == "__main__":
     glob_config=config_dic.get("config", None)
     outdir=glob_config.get('outdir', '.')
 
+    if(lib=='pandas'):
+        import pandas as pd
+        from pandas.api.types import CategoricalDtype
+    elif(lib=='modin'):
+        import modin.pandas as pd
+        from modin.pandas import CategoricalDtype
+    else:
+        raise Exception("lib name[{}] error".format(lib))  
+
     relationdatafile=glob_config.get('relationdata', None)
     mayi_2=glob_config.get('mayi_2', None)
     mayi_3=glob_config.get('mayi_3', None)
     mayi_type = CategoricalDtype(categories=[mayi_2, mayi_3])
 
-    ret_code, ret_msg, relation_ds=read_csv(relationdatafile)
+    ret_code, ret_msg, ds=read_csv(relationdatafile)
     if(ret_code==0):
-        relation_ds['prod_code']=mayi_3
+        ds['prod_code']=mayi_3
+        relation_ds=ds.copy()
         relation_ds['prod_code']=relation_ds['prod_code'].astype(mayi_type)
     else:
         raise Exception("section[{}] read_csv error[{}]".format('relationdata', ret_msg))  
 
     section_list_single=['accounting', 'loan_detail']
     section_list_multiple=['loan_calc', 'arg_status_change', 'repay_loan_detail', 'exempt_loan_detail',  'repay_plan', 'loan_init']
+
+    # section_list_single+=section_list_multiple
+    # section_list_multiple=[]
+
     section_name=args.section
 
     out_ds_list={}
@@ -289,10 +314,15 @@ if __name__ == "__main__":
         if(ret_code!=0):
             raise Exception("thread[{}] func[{}] error[{}]".format(t, 'deal_csv', ret_msg))  
 
-    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
+    # out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
+    i=0
     for key, ds in out_ds_list.items():
-        out_ds=out_ds.append(ds)
-    out_ds['openday']=yyyymmdd
+        if(i==0):
+            out_ds=ds.copy()
+        else:
+            out_ds=out_ds.append(ds)
+        i+=1
+    out_ds.insert(0, 'openday', yyyymmdd)
     print(out_ds)
 
     write_csv(out_ds, outdir, 'detail_stat.' + yyyymmdd + '.csv')
