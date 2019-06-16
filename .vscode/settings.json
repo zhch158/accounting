@@ -10,5 +10,6 @@
             "server": "192.168.140.128",
             "username": "root"
         }
-    ]
+    ],
+    "python.pythonPath": "/usr/bin/python3"
 }

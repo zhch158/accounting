@@ -34,13 +34,14 @@ def read_csv(infile, column_dict=None, checkfile=None):
     if(column_dict!=None and len(column_dict)>0):
         optimized_ds = pd.read_csv(infile, dtype=column_dict)
         print('read_csv[{}] shape[{}]'.format(infile, optimized_ds.shape))
-        print(optimized_ds.info(memory_usage='deep'))
+        if(optimized_ds.shape[0]!=0):
+            print(optimized_ds.info(memory_usage='deep'))
     else:
         ds = pd.read_csv(infile, dtype=column_dict)
         print('read_csv[{}] shape[{}]'.format(infile, ds.shape))
-        print(ds.info(memory_usage='deep'))
         # print("mem[%.2f]MB" %(ds.memory_usage(deep=true).sum()/1024/1024))
         if(ds.shape[0]>0):
+            print(ds.info(memory_usage='deep'))
             for dtype in ['float64', 'int64', 'object']:
                 sum_usage_mb=mem_usage(ds.select_dtypes(include=[dtype]))
                 print("Total memory usage for {} columns: {}".format(dtype, sum_usage_mb))
@@ -94,7 +95,18 @@ def write_csv(ds, outdir, section):
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     o_file= os.path.join(outdir, section)
-    ds.to_csv(o_file, encoding='utf-8', index=False, header=True)
+    if(ds.shape[0]>0):
+        ds.to_csv(o_file, encoding='utf-8', index=False, header=True)
+    else:
+        f=open(o_file, mode='w', encoding='utf-8')
+        row=None
+        for i, col in enumerate(ds.columns.to_list()):
+            if(i==0):
+                row=col
+            else:
+                row += ',' + col
+        f.write(row)
+        f.close()
 
 def set_value(row, datafile, groupby, col):
     detail_type=datafile + '.'
@@ -208,7 +220,7 @@ if __name__ == "__main__":
     if(len(sys.argv) == 1):
         # parser.print_help()
         # args=parser.parse_args('--config ./account_detail.yaml'.split())
-        args=parser.parse_args('--yyyymmdd 20190525 --config ./account_detail.yaml --section arg_status_change'.split())
+        args=parser.parse_args('--yyyymmdd 20190525 --config ./account_detail.yaml --section exempt_loan_detail'.split())
         # args=parser.parse_args('--workdir G:/myjb --yyyymmdd 20190525 --config ./account_detail.yaml --section arg_status_change'.split())
     else:
         args=parser.parse_args()
@@ -269,7 +281,7 @@ if __name__ == "__main__":
         raise Exception("section[{}] read_csv error[{}]".format('relationdata', ret_msg))  
 
     section_list_single=['accounting', 'loan_detail']
-    section_list_multiple=['loan_calc', 'arg_status_change', 'repay_loan_detail', 'exempt_loan_detail',  'repay_plan', 'loan_init']
+    section_list_multiple=['loan_calc', 'arg_status_change', 'exempt_loan_detail', 'repay_loan_detail',  'repay_plan', 'loan_init']
 
     # section_list_single+=section_list_multiple
     # section_list_multiple=[]
@@ -316,13 +328,16 @@ if __name__ == "__main__":
 
     # out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
     i=0
+    out_ds=pd.DataFrame({'openday':[], 'detail_type':[], 'detail_cnt':[], 'detail_amt':[]})
     for key, ds in out_ds_list.items():
-        if(i==0):
-            out_ds=ds.copy()
-        else:
-            out_ds=out_ds.append(ds)
-        i+=1
-    out_ds.insert(0, 'openday', yyyymmdd)
+        if(ds.shape[0]>0):
+            if(i==0):
+                out_ds=ds.copy()
+            else:
+                out_ds=out_ds.append(ds)
+            i+=1
+    if(out_ds.shape[0]>0):
+        out_ds.insert(0, 'openday', yyyymmdd)
     print(out_ds)
 
     write_csv(out_ds, outdir, 'detail_stat.' + yyyymmdd + '.csv')
